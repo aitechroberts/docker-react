@@ -1,0 +1,19 @@
+name: React App Deploy
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile.dev --tag jrobe/docker-react
+    - name: Run CI Test
+      run: docker run -e CI=true -t jrobe/docker-react npm run test
+      
