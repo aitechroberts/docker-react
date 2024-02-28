@@ -1,19 +1,38 @@
-name: React App Deploy
+name: Docker Build, Test, and Deploy Workflow
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    branches:
+      - master
   workflow_dispatch:
 
 jobs:
-  build:
+  build-test-and-deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile.dev --tag jrobe/docker-react
-    - name: Run CI Test
-      run: docker run -e CI=true -t jrobe/docker-react npm run test
-      
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile.dev -t jrobe/docker-react .
+
+      - name: Run tests in Docker container
+        run: docker run -e CI=true jrobe/docker-react npm run test
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Docker image to ACR
+        run: |
+          az acr login --name udemyapp1
+          docker tag jrobe/docker-react udemyapp1.azurecr.io/docker-react:latest
+          docker push udemyapp1.azurecr.io/docker-react:latest
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: udemy-docker-react
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          images: 'udemyapp1.azurecr.io/docker-react:latest'
